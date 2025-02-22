@@ -285,7 +285,7 @@ func handleWebSocket(conn net.Conn) {
 			}
 			log.Printf("Received message: %s", msg.Content)
 
-			response := Msg{Role: "agent", Content: "Okay i got it"}
+			response := Msg{Role: "agent", Content: "Message Recieved"}
 			responseJSON, _ := json.Marshal(response)
 			sendFrame(conn, responseJSON)
 		}
