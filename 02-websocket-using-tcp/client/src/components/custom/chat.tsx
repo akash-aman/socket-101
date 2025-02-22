@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, Plus, Send } from "lucide-react";
+import { Check, X, Plus, Send } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -12,22 +12,6 @@ import {
   CardFooter,
   CardHeader,
 } from "@/components/ui/card";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Tooltip,
@@ -70,6 +54,9 @@ export function CardsChat() {
   const ws = React.useRef<WebSocket | null>(null);
   const [open, setOpen] = React.useState(false);
   const [selectedUsers, setSelectedUsers] = React.useState<User[]>([]);
+  const [socketStatus, setSocketStatus] = React.useState<
+    "connected" | "disconnected"
+  >("disconnected");
   const [messages, setMessages] = React.useState([
     {
       role: "agent",
@@ -92,22 +79,29 @@ export function CardsChat() {
   const inputLength = input.trim().length;
 
   React.useEffect(() => {
-    ws.current = new WebSocket("ws://localhost:4443");
+    const connectWebSocket = () => {
+      ws.current = new WebSocket("ws://localhost:4443");
 
-    ws.current.onopen = () => {
-      console.log("Connected to the server");
+      ws.current.onopen = () => {
+        setSocketStatus("connected");
+        console.log("Connected to the server");
+      };
+
+      ws.current.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        console.log("Received message from the server", message);
+
+        setMessages((prevMessages) => [...prevMessages, message]);
+      };
+
+      ws.current.onclose = () => {
+        console.log("Disconnected from the server");
+        setSocketStatus("disconnected");
+        setTimeout(connectWebSocket, 5000); // Reconnect after 5 seconds
+      };
     };
 
-    ws.current.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      console.log("Received message from the server", message);
-
-      setMessages((prevMessages) => [...prevMessages, message]);
-    };
-
-    ws.current.onclose = () => {
-      console.log("Disconnected from the server");
-    };
+    connectWebSocket();
 
     return () => {
       ws.current?.close();
@@ -133,6 +127,15 @@ export function CardsChat() {
             <div>
               <p className="text-sm font-medium leading-none">Sofia Davis</p>
               <p className="text-sm text-muted-foreground">m@example.com</p>
+            </div>
+            <div>
+              <span className="text-xs text-muted-foreground">
+                {socketStatus === "connected" ? (
+                  <Check className="w-4 h-4 text-primary text-green-600" />
+                ) : (
+                  <X className="w-4 h-4 text-primary text-red-600" />
+                )}
+              </span>
             </div>
           </div>
           <TooltipProvider delayDuration={0}>
@@ -204,7 +207,6 @@ export function CardsChat() {
           </form>
         </CardFooter>
       </Card>
-      
     </>
   );
 }
