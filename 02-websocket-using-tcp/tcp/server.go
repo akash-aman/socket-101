@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -13,6 +14,11 @@ import (
 	"strings"
 	"sync"
 )
+
+type Msg struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
 
 /**
  * WebSocket Frame.
@@ -258,7 +264,7 @@ func handleWebSocket(conn net.Conn) {
 
 		log.Printf("Received frame type: %s", frame.OpcodeName())
 		if len(frame.Payload) > 0 {
-			//log.Printf("Payload: %s", string(frame.Payload))
+			log.Printf("Payload: %s", string(frame.Payload))
 		}
 
 		// Handle different frame types
@@ -270,8 +276,47 @@ func handleWebSocket(conn net.Conn) {
 			log.Println("Received ping")
 		case "pong":
 			log.Println("Received pong")
+		case "text":
+			var msg Msg
+			err := json.Unmarshal(frame.Payload, &msg)
+			if err != nil {
+				log.Println("Error parsing JSON:", err)
+				continue
+			}
+			log.Printf("Received message: %s", msg.Content)
+
+			response := Msg{Role: "agent", Content: "Okay i got it"}
+			responseJSON, _ := json.Marshal(response)
+			sendFrame(conn, responseJSON)
 		}
 	}
+}
+
+func sendFrame(conn net.Conn, payload []byte) {
+	frame := &Frame{
+		Fin:        true,
+		Opcode:     0x1, // Text frame
+		PayloadLen: uint64(len(payload)),
+		Payload:    payload,
+	}
+
+	header := []byte{0x81} // FIN + Text frame opcode
+	if frame.PayloadLen <= 125 {
+		header = append(header, byte(frame.PayloadLen))
+	} else if frame.PayloadLen <= 65535 {
+		header = append(header, 126)
+		extendedLen := make([]byte, 2)
+		binary.BigEndian.PutUint16(extendedLen, uint16(frame.PayloadLen))
+		header = append(header, extendedLen...)
+	} else {
+		header = append(header, 127)
+		extendedLen := make([]byte, 8)
+		binary.BigEndian.PutUint64(extendedLen, frame.PayloadLen)
+		header = append(header, extendedLen...)
+	}
+
+	conn.Write(header)
+	conn.Write(payload)
 }
 
 func generateWebSocketAcceptKey(key string) string {

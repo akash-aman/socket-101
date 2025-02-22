@@ -10,6 +10,6 @@ func main() {
 	sync.Add(1)
 	defer sync.Wait()
 	go tcp.NewServer(&sync)
-	go tcp.NewClient(&sync)
+	//go tcp.NewClient(&sync)
 
 }
