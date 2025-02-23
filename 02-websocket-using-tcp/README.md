@@ -5,5 +5,5 @@
 ## Server
 ![alt text](./assets/server.png)
 
-## Server
+## Client
 ![alt text](./assets/client.png)
